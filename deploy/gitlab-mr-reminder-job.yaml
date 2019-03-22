@@ -13,7 +13,7 @@ spec:
         spec:
           containers:
           - name: gitlab-mr-reminder
-            image: emdupp/gitlab-mr-reminder:0.0.1
+            image: emdupp/gitlab-mr-reminder:0.0.2
             imagePullPolicy: Always
             env:
             - name: GITLAB_DOMAIN
@@ -24,5 +24,7 @@ spec:
               value: ""
             - name : SLACK_CHANNEL
               value: ""
+            - name : CHECK_INTERVAL
+              value: 1h            
           restartPolicy: Never
       backoffLimit: 1
