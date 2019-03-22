@@ -24,5 +24,7 @@ spec:
               value: ""
             - name : SLACK_CHANNEL
               value: ""
+            - name : CHECK_INTERVAL
+              value: 1h            
           restartPolicy: Never
       backoffLimit: 1
