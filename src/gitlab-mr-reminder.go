@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -25,11 +26,11 @@ type mergeRequests struct {
 		Name string `json:"name"`
 	} `json:"author"`
 	UserNoteCount int    `json:"user_notes_count"`
-	WebUrl        string `json:"web_url"`
+	WebURL        string `json:"web_url"`
 }
 
-func (m *mergeRequests) Filter() bool {
-	if time.Since(m.CreatedAt).Hours() > 24 {
+func (m *mergeRequests) Filter(checkInterval *float64) bool {
+	if time.Since(m.CreatedAt).Hours() > *checkInterval {
 		if !strings.Contains(m.Title, "WIP") {
 			if m.UserNoteCount == 0 {
 				return true
@@ -97,7 +98,7 @@ func getMergeRequests(gitlabToken *string, gitlabDomain *string, projectID *int)
 
 func postToSlack(slackWebhook *string, slackChannel *string, msg *[]string) {
 	client := &http.Client{}
-	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR? They are older than 24h and have no comments: \n%v", "icon_emoji": ":eyes:"}`, *slackChannel, strings.Join(*msg, "\n")))
+	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR?\n%v", "icon_emoji": ":eyes:"}`, *slackChannel, strings.Join(*msg, "\n")))
 	log.Println("Posting to slack")
 	fmt.Println(string(jsonStr))
 	r, err := http.NewRequest("POST", *slackWebhook, bytes.NewBuffer(jsonStr))
@@ -122,15 +123,17 @@ func main() {
 	gitlabToken := os.Getenv("GITLAB_TOKEN")
 	slackWebhook := os.Getenv("SLACK_WEBHOOK")
 	slackChannel := os.Getenv("SLACK_CHANNEL")
+	checkInterval := os.Getenv("CHECK_INTERVAL")
 	projects := *getProjects(&gitlabToken, &gitlabDomain)
 	var mrList []string
+	floatcheckInterval, _ := strconv.ParseFloat(checkInterval, 64)
 	for _, project := range projects {
 		fmt.Printf("Checking Merge request for project %v\n", project.Name)
 		mergeRequestsPerProject := getMergeRequests(&gitlabToken, &gitlabDomain, &project.ID)
 		for _, mergeRequest := range *mergeRequestsPerProject {
-			if mergeRequest.Filter() {
+			if mergeRequest.Filter(&floatcheckInterval) {
 				log.Printf("Found: %v", mergeRequest.Title)
-				mrList = append(mrList, fmt.Sprintf("[%v] [%v] %v %v", project.Name, mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebUrl))
+				mrList = append(mrList, fmt.Sprintf("[%v] [%v] %v %v", project.Name, mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebURL))
 			}
 		}
 	}
