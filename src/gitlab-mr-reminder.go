@@ -29,7 +29,7 @@ type mergeRequests struct {
 }
 
 func (m *mergeRequests) Filter() bool {
-	if time.Since(m.CreatedAt).Hours() > 24 {
+	if time.Since(m.CreatedAt).Hours() > 1 {
 		if !strings.Contains(m.Title, "WIP") {
 			if m.UserNoteCount == 0 {
 				return true
@@ -41,7 +41,7 @@ func (m *mergeRequests) Filter() bool {
 
 func getProjects(token *string, gitlabDomain *string) *[]projects {
 	client := &http.Client{}
-	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v/api/v4/groups/devops/projects/", *gitlabDomain), nil)
+	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v/api/v4/groups/devops/projects?per_page=100", *gitlabDomain), nil)
 	r.Header.Set("Private-Token", *token)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -69,7 +69,7 @@ func getProjects(token *string, gitlabDomain *string) *[]projects {
 
 func getMergeRequests(gitlabToken *string, gitlabDomain *string, projectID *int) *[]mergeRequests {
 	client := &http.Client{}
-	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v//api/v4/projects/%v/merge_requests?state=opened", *gitlabDomain, *projectID), nil)
+	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v//api/v4/projects/%v/merge_requests?state=opened&per_page=100", *gitlabDomain, *projectID), nil)
 	r.Header.Set("Private-Token", *gitlabToken)
 	if err != nil {
 		log.Fatal(err.Error())
