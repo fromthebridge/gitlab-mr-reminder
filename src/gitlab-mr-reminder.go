@@ -97,7 +97,7 @@ func getMergeRequests(gitlabToken *string, gitlabDomain *string, projectID *int)
 
 func postToSlack(slackWebhook *string, slackChannel *string, msg *[]string) {
 	client := &http.Client{}
-	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR? They are older than 24h and have no comments: \n%v", "icon_emoji": ":eyes:"}`, *slackChannel, strings.Join(*msg, "\n")))
+	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR? They are older than 1h and have no comments: \n%v", "icon_emoji": ":eyes:"}`, *slackChannel, strings.Join(*msg, "\n")))
 	log.Println("Posting to slack")
 	fmt.Println(string(jsonStr))
 	r, err := http.NewRequest("POST", *slackWebhook, bytes.NewBuffer(jsonStr))
