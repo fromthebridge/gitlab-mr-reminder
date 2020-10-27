@@ -12,9 +12,9 @@ import (
 	"time"
 )
 
-type projects struct {
-	Name string `json:"name"`
-	ID   int    `json:"id"`
+type groupMembers struct {
+	Username  string `json:"username"`
+	AccessLVL int    `json:"access_level"`
 }
 
 type mergeRequests struct {
@@ -24,6 +24,9 @@ type mergeRequests struct {
 	Author    struct {
 		Name string `json:"name"`
 	} `json:"author"`
+	References struct {
+		FullRef string `json:"full"`
+	} `json:"references"`
 	UserNoteCount int    `json:"user_notes_count"`
 	WebUrl        string `json:"web_url"`
 }
@@ -39,9 +42,9 @@ func (m *mergeRequests) Filter() bool {
 	return false
 }
 
-func getProjects(token *string, gitlabDomain *string) *[]projects {
+func getMembers(token *string, gitlabDomain *string) *[]groupMembers {
 	client := &http.Client{}
-	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v/api/v4/groups/devops/projects?per_page=100", *gitlabDomain), nil)
+	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v/api/v4/groups/devops/members?per_page=100", *gitlabDomain), nil)
 	r.Header.Set("Private-Token", *token)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -58,18 +61,18 @@ func getProjects(token *string, gitlabDomain *string) *[]projects {
 	if resp.StatusCode != 200 {
 		log.Fatal(resp.Status)
 	}
-	projects := []projects{}
-	jsonErr := json.Unmarshal(body, &projects)
+	groupMembers := []groupMembers{}
+	jsonErr := json.Unmarshal(body, &groupMembers)
 	if jsonErr != nil {
 		log.Fatal(jsonErr)
 	}
-	return &projects
+	return &groupMembers
 
 }
 
-func getMergeRequests(gitlabToken *string, gitlabDomain *string, projectID *int) *[]mergeRequests {
+func getMergeRequests(gitlabToken *string, gitlabDomain *string, groupMember *string) *[]mergeRequests {
 	client := &http.Client{}
-	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v//api/v4/projects/%v/merge_requests?state=opened&per_page=100", *gitlabDomain, *projectID), nil)
+	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v//api/v4/merge_requests?author_username=%v&state=opened&per_page=100", *gitlabDomain, *groupMember), nil)
 	r.Header.Set("Private-Token", *gitlabToken)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -114,7 +117,6 @@ func postToSlack(slackWebhook *string, slackChannel *string, msg *[]string) {
 	if resp.StatusCode != 200 {
 		log.Fatal(resp)
 	}
-
 }
 
 func main() {
@@ -122,18 +124,19 @@ func main() {
 	gitlabToken := os.Getenv("GITLAB_TOKEN")
 	slackWebhook := os.Getenv("SLACK_WEBHOOK")
 	slackChannel := os.Getenv("SLACK_CHANNEL")
-	projects := *getProjects(&gitlabToken, &gitlabDomain)
+	groupMembers := *getMembers(&gitlabToken, &gitlabDomain)
 	var mrList []string
-	for _, project := range projects {
-		fmt.Printf("Checking Merge request for project %v\n", project.Name)
-		mergeRequestsPerProject := getMergeRequests(&gitlabToken, &gitlabDomain, &project.ID)
+	for _, groupMember := range groupMembers {
+		fmt.Printf("Checking Merge request for member %v\n", groupMember.Username)
+		mergeRequestsPerProject := getMergeRequests(&gitlabToken, &gitlabDomain, &groupMember.Username)
 		for _, mergeRequest := range *mergeRequestsPerProject {
 			if mergeRequest.Filter() {
 				log.Printf("Found: %v", mergeRequest.Title)
-				mrList = append(mrList, fmt.Sprintf("[%v] [%v] %v %v", project.Name, mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebUrl))
+				mrList = append(mrList, fmt.Sprintf("[%v] %v %v", mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebUrl))
 			}
 		}
 	}
+	fmt.Println(mrList)
 	if len(mrList) > 0 {
 		postToSlack(&slackWebhook, &slackChannel, &mrList)
 	} else {
