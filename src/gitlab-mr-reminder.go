@@ -127,16 +127,17 @@ func main() {
 	groupMembers := *getMembers(&gitlabToken, &gitlabDomain)
 	var mrList []string
 	for _, groupMember := range groupMembers {
-		fmt.Printf("Checking Merge request for member %v\n", groupMember.Username)
-		mergeRequestsPerProject := getMergeRequests(&gitlabToken, &gitlabDomain, &groupMember.Username)
-		for _, mergeRequest := range *mergeRequestsPerProject {
-			if mergeRequest.Filter() {
-				log.Printf("Found: %v", mergeRequest.Title)
-				mrList = append(mrList, fmt.Sprintf("[%v] %v %v", mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebUrl))
+		if groupMember.AccessLVL >= 40 {
+			fmt.Printf("Checking Merge request for member %v\n", groupMember.Username)
+			mergeRequestsPerProject := getMergeRequests(&gitlabToken, &gitlabDomain, &groupMember.Username)
+			for _, mergeRequest := range *mergeRequestsPerProject {
+				if mergeRequest.Filter() {
+					log.Printf("Found: %v", mergeRequest.Title)
+					mrList = append(mrList, fmt.Sprintf("[%v][%v] %v %v", mergeRequest.References.FullRef, mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebUrl))
+				}
 			}
 		}
 	}
-	fmt.Println(mrList)
 	if len(mrList) > 0 {
 		postToSlack(&slackWebhook, &slackChannel, &mrList)
 	} else {
