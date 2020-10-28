@@ -72,7 +72,7 @@ func getMembers(token *string, gitlabDomain *string) *[]groupMembers {
 
 func getMergeRequests(gitlabToken *string, gitlabDomain *string, groupMember *string) *[]mergeRequests {
 	client := &http.Client{}
-	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v//api/v4/merge_requests?author_username=%v&state=opened&per_page=100", *gitlabDomain, *groupMember), nil)
+	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v//api/v4/merge_requests?author_username=%v&scope=all&state=opened&per_page=100", *gitlabDomain, *groupMember), nil)
 	r.Header.Set("Private-Token", *gitlabToken)
 	if err != nil {
 		log.Fatal(err.Error())
