@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -28,11 +29,11 @@ type mergeRequests struct {
 		FullRef string `json:"full"`
 	} `json:"references"`
 	UserNoteCount int    `json:"user_notes_count"`
-	WebUrl        string `json:"web_url"`
+	WebURL        string `json:"web_url"`
 }
 
-func (m *mergeRequests) Filter() bool {
-	if time.Since(m.CreatedAt).Hours() > 1 {
+func (m *mergeRequests) Filter(mrAge float64) bool {
+	if time.Since(m.CreatedAt).Hours() > mrAge {
 		if !strings.Contains(m.Title, "WIP") {
 			if m.UserNoteCount == 0 {
 				return true
@@ -42,9 +43,9 @@ func (m *mergeRequests) Filter() bool {
 	return false
 }
 
-func getMembers(token *string, gitlabDomain *string) *[]groupMembers {
+func getMembers(token *string, gitlabDomain *string, groupName *string) *[]groupMembers {
 	client := &http.Client{}
-	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v/api/v4/groups/devops/members?per_page=100", *gitlabDomain), nil)
+	r, err := http.NewRequest("GET", fmt.Sprintf("https://%v/api/v4/groups/%v/members?per_page=100", *gitlabDomain, *groupName), nil)
 	r.Header.Set("Private-Token", *token)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -100,9 +101,8 @@ func getMergeRequests(gitlabToken *string, gitlabDomain *string, groupMember *st
 
 func postToSlack(slackWebhook *string, slackChannel *string, msg *[]string) {
 	client := &http.Client{}
-	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR? They are older than 1h and have no comments: \n%v", "icon_emoji": ":eyes:"}`, *slackChannel, strings.Join(*msg, "\n")))
+	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR: \n%v", "icon_emoji": ":eyes:"}`, *slackChannel, strings.Join(*msg, "\n")))
 	log.Println("Posting to slack")
-	fmt.Println(string(jsonStr))
 	r, err := http.NewRequest("POST", *slackWebhook, bytes.NewBuffer(jsonStr))
 	r.Header.Set("Content-Type", "application/json")
 	if err != nil {
@@ -122,18 +122,25 @@ func postToSlack(slackWebhook *string, slackChannel *string, msg *[]string) {
 func main() {
 	gitlabDomain := os.Getenv("GITLAB_DOMAIN")
 	gitlabToken := os.Getenv("GITLAB_TOKEN")
+	groupName := os.Getenv("GITLAB_GROUP_NAME")
+	groupMemberLvl, _ := strconv.Atoi(os.Getenv("GITLAB_GROUP_MEMBER_LEVEL"))
+	mrAge, _ := strconv.ParseFloat(os.Getenv("GITLAB_MR_AGE"), 32)
 	slackWebhook := os.Getenv("SLACK_WEBHOOK")
 	slackChannel := os.Getenv("SLACK_CHANNEL")
-	groupMembers := *getMembers(&gitlabToken, &gitlabDomain)
+	if ( groupName == "" || gitlabDomain == "" || gitlabToken == "" || slackWebhook == "") {
+		log.Printf("GITLAB_DOMAIN: %v GITLAB_TOKEN: %v GITLAB_GROUP_NAME: %v SLACK_WEBHOOK: %v",gitlabDomain,gitlabToken,groupName,slackWebhook)
+		log.Fatal("Missing configuration variables")
+	}
+	groupMembers := *getMembers(&gitlabToken, &gitlabDomain, &groupName)
 	var mrList []string
 	for _, groupMember := range groupMembers {
-		if groupMember.AccessLVL >= 40 {
-			fmt.Printf("Checking Merge request for member %v\n", groupMember.Username)
+		if groupMember.AccessLVL >= groupMemberLvl {
+			log.Printf("Checking Merge request for member %v\n", groupMember.Username)
 			mergeRequestsPerProject := getMergeRequests(&gitlabToken, &gitlabDomain, &groupMember.Username)
 			for _, mergeRequest := range *mergeRequestsPerProject {
-				if mergeRequest.Filter() {
+				if mergeRequest.Filter((mrAge)) {
 					log.Printf("Found: %v", mergeRequest.Title)
-					mrList = append(mrList, fmt.Sprintf("[%v][%v] %v %v", mergeRequest.References.FullRef, mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebUrl))
+					mrList = append(mrList, fmt.Sprintf("[%v][%v] %v %v", mergeRequest.References.FullRef, mergeRequest.Author.Name, mergeRequest.Title, mergeRequest.WebURL))
 				}
 			}
 		}
@@ -141,6 +148,6 @@ func main() {
 	if len(mrList) > 0 {
 		postToSlack(&slackWebhook, &slackChannel, &mrList)
 	} else {
-		fmt.Println("Nothing found, nothing to do")
+		log.Println("Nothing found, nothing to do")
 	}
 }
