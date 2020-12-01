@@ -1,0 +1,24 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: {{ template "gitlab-mr-reminder.name" . }}
+  namespace: {{ default "default" .Values.namespace }}
+  labels:
+{{ include "gitlab-mr-reminder.labels" . | indent 4 }}
+spec:
+  schedule: {{ default "0 13-21 * * 1-5" .Values.schedule }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: {{ template "gitlab-mr-reminder.name" . }}
+            image: {{ default "emdupp/gitlab-mr-reminder:latest" .Values.image }} 
+            imagePullPolicy: IfNotPresent
+            env:
+            {{- range $key, $val := .Values.config }}
+            - name: {{ $key }}
+              value: {{ $val | quote }}
+            {{- end}}
+          restartPolicy: Never
+      backoffLimit: 1
