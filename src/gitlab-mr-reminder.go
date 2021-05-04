@@ -99,11 +99,11 @@ func getMergeRequests(gitlabToken *string, gitlabDomain *string, groupMember *st
 
 }
 
-func postToSlack(slackWebhook *string, slackChannel *string, msg *[]string) {
+func postToteams(teamsWebhook *string, teamsChannel *string, msg *[]string) {
 	client := &http.Client{}
-	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR: \n%v", "icon_emoji": ":eyes:"}`, *slackChannel, strings.Join(*msg, "\n")))
-	log.Println("Posting to slack")
-	r, err := http.NewRequest("POST", *slackWebhook, bytes.NewBuffer(jsonStr))
+	var jsonStr = []byte(fmt.Sprintf(`{"channel": "%v", "username": "mr-reminder", "text": "Please can anyone have a look at the folowing MR: \n%v", "icon_emoji": ":eyes:"}`, *teamsChannel, strings.Join(*msg, "\n")))
+	log.Println("Posting to teams")
+	r, err := http.NewRequest("POST", *teamsWebhook, bytes.NewBuffer(jsonStr))
 	r.Header.Set("Content-Type", "application/json")
 	if err != nil {
 		log.Fatal(err.Error())
@@ -125,10 +125,10 @@ func main() {
 	groupName := os.Getenv("GITLAB_GROUP_NAME")
 	groupMemberLvl, _ := strconv.Atoi(os.Getenv("GITLAB_GROUP_MEMBER_LEVEL"))
 	mrAge, _ := strconv.ParseFloat(os.Getenv("GITLAB_MR_AGE"), 32)
-	slackWebhook := os.Getenv("SLACK_WEBHOOK")
-	slackChannel := os.Getenv("SLACK_CHANNEL")
-	if ( groupName == "" || gitlabDomain == "" || gitlabToken == "" || slackWebhook == "") {
-		log.Printf("GITLAB_DOMAIN: %v GITLAB_TOKEN: %v GITLAB_GROUP_NAME: %v SLACK_WEBHOOK: %v",gitlabDomain,gitlabToken,groupName,slackWebhook)
+	teamsWebhook := os.Getenv("TEAMS_WEBHOOK")
+	teamsChannel := os.Getenv("TEAMS_CHANNEL")
+	if ( groupName == "" || gitlabDomain == "" || gitlabToken == "" || teamsWebhook == "") {
+		log.Printf("GITLAB_DOMAIN: %v GITLAB_TOKEN: %v GITLAB_GROUP_NAME: %v TEAMS_WEBHOOK: %v",gitlabDomain,gitlabToken,groupName,teamsWebhook)
 		log.Fatal("Missing configuration variables")
 	}
 	groupMembers := *getMembers(&gitlabToken, &gitlabDomain, &groupName)
@@ -146,7 +146,7 @@ func main() {
 		}
 	}
 	if len(mrList) > 0 {
-		postToSlack(&slackWebhook, &slackChannel, &mrList)
+		postToteams(&teamsWebhook, &teamsChannel, &mrList)
 	} else {
 		log.Println("Nothing found, nothing to do")
 	}
