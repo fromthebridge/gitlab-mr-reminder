@@ -8,5 +8,5 @@ config:
   GITLAB_DOMAIN: "xxx"
   GITLAB_TOKEN: "xxx"
   GITLAB_GROUP_NAME: "team"
-  SLACK_WEBHOOK: "https://hooks.slack.com/services/xxx"
-  SLACK_CHANNEL: "#xxx"
+  TEAMS_WEBHOOK: "https://webhook.office.com/webhook/xxx"
+  TEAMS_CHANNEL: "#xxx"
